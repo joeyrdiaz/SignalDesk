@@ -1,0 +1,255 @@
+import type { FeedSource, StreamCategory } from "./types";
+
+/** Curated high-signal RSS/Atom library — real public URLs only. */
+export const CURATED_FEEDS: FeedSource[] = [
+  // Markets & Macro
+  {
+    id: "meb-faber",
+    name: "Meb Faber Research",
+    url: "https://mebfaber.com/feed/",
+    siteUrl: "https://mebfaber.com",
+    category: "markets",
+    quality: 0.92,
+  },
+  {
+    id: "fed-press",
+    name: "Federal Reserve Press",
+    url: "https://www.federalreserve.gov/feeds/press_all.xml",
+    siteUrl: "https://www.federalreserve.gov",
+    category: "markets",
+    quality: 0.98,
+  },
+  {
+    id: "calculated-risk",
+    name: "Calculated Risk",
+    url: "https://www.calculatedriskblog.com/feeds/posts/default?alt=rss",
+    siteUrl: "https://www.calculatedriskblog.com",
+    category: "markets",
+    quality: 0.9,
+  },
+  {
+    id: "lyn-alden",
+    name: "Lyn Alden",
+    url: "https://www.lynalden.com/feed/",
+    siteUrl: "https://www.lynalden.com",
+    category: "markets",
+    quality: 0.95,
+  },
+  {
+    id: "marketwatch-top",
+    name: "MarketWatch Top Stories",
+    url: "https://feeds.marketwatch.com/marketwatch/topstories/",
+    siteUrl: "https://www.marketwatch.com",
+    category: "markets",
+    quality: 0.78,
+  },
+  {
+    id: "bloomberg-markets",
+    name: "Bloomberg Markets",
+    url: "https://feeds.bloomberg.com/markets/news.rss",
+    siteUrl: "https://www.bloomberg.com/markets",
+    category: "markets",
+    quality: 0.88,
+  },
+  {
+    id: "economist-finance",
+    name: "Economist Finance",
+    url: "https://www.economist.com/finance-and-economics/rss.xml",
+    siteUrl: "https://www.economist.com",
+    category: "markets",
+    quality: 0.9,
+  },
+
+  // Equity & Valuation
+  {
+    id: "damodaran",
+    name: "Damodaran Musings",
+    url: "https://aswathdamodaran.blogspot.com/feeds/posts/default?alt=rss",
+    siteUrl: "https://aswathdamodaran.blogspot.com",
+    category: "equity",
+    quality: 0.97,
+  },
+  {
+    id: "stratechery",
+    name: "Stratechery",
+    url: "https://stratechery.com/feed/",
+    siteUrl: "https://stratechery.com",
+    category: "equity",
+    quality: 0.94,
+  },
+  {
+    id: "neckar",
+    name: "Neckar Insecurity Analysis",
+    url: "https://neckar.substack.com/feed",
+    siteUrl: "https://neckar.substack.com",
+    category: "equity",
+    quality: 0.88,
+  },
+  {
+    id: "speedwell",
+    name: "Speedwell Research",
+    url: "https://speedwellresearch.com/feed",
+    siteUrl: "https://speedwellresearch.com",
+    category: "equity",
+    quality: 0.86,
+  },
+  {
+    id: "valuewalk",
+    name: "ValueWalk",
+    url: "https://www.valuewalk.com/feed/",
+    siteUrl: "https://www.valuewalk.com",
+    category: "equity",
+    quality: 0.8,
+  },
+  {
+    id: "collaborative-fund",
+    name: "Collaborative Fund",
+    url: "https://www.collaborativefund.com/blog?format=rss",
+    siteUrl: "https://www.collaborativefund.com",
+    category: "equity",
+    quality: 0.87,
+  },
+
+  // Data Science & Analytics
+  {
+    id: "kdnuggets",
+    name: "KDnuggets",
+    url: "https://www.kdnuggets.com/feed",
+    siteUrl: "https://www.kdnuggets.com",
+    category: "data",
+    quality: 0.85,
+  },
+  {
+    id: "tds",
+    name: "Towards Data Science",
+    url: "https://towardsdatascience.com/feed",
+    siteUrl: "https://towardsdatascience.com",
+    category: "data",
+    quality: 0.82,
+  },
+  {
+    id: "dbt-blog",
+    name: "dbt Blog",
+    url: "https://docs.getdbt.com/blog/rss.xml",
+    siteUrl: "https://docs.getdbt.com/blog",
+    category: "data",
+    quality: 0.88,
+  },
+  {
+    id: "flowingdata",
+    name: "FlowingData",
+    url: "https://flowingdata.com/feed",
+    siteUrl: "https://flowingdata.com",
+    category: "data",
+    quality: 0.9,
+  },
+  {
+    id: "r-bloggers",
+    name: "R-bloggers",
+    url: "https://www.r-bloggers.com/feed/",
+    siteUrl: "https://www.r-bloggers.com",
+    category: "data",
+    quality: 0.84,
+  },
+  {
+    id: "analytics-vidhya",
+    name: "Analytics Vidhya",
+    url: "https://www.analyticsvidhya.com/blog/feed/",
+    siteUrl: "https://www.analyticsvidhya.com",
+    category: "data",
+    quality: 0.78,
+  },
+  {
+    id: "planet-python",
+    name: "Planet Python",
+    url: "https://planetpython.org/rss20.xml",
+    siteUrl: "https://planetpython.org",
+    category: "data",
+    quality: 0.8,
+  },
+  {
+    id: "databricks",
+    name: "Databricks Blog",
+    url: "https://www.databricks.com/feed",
+    siteUrl: "https://www.databricks.com/blog",
+    category: "data",
+    quality: 0.86,
+  },
+
+  // AI & ML
+  {
+    id: "bair",
+    name: "BAIR Blog",
+    url: "https://bair.berkeley.edu/blog/feed.xml",
+    siteUrl: "https://bair.berkeley.edu/blog",
+    category: "ai",
+    quality: 0.93,
+  },
+  {
+    id: "huggingface",
+    name: "Hugging Face Blog",
+    url: "https://huggingface.co/blog/feed.xml",
+    siteUrl: "https://huggingface.co/blog",
+    category: "ai",
+    quality: 0.92,
+  },
+  {
+    id: "simonw",
+    name: "Simon Willison",
+    url: "https://simonwillison.net/atom/everything/",
+    siteUrl: "https://simonwillison.net",
+    category: "ai",
+    quality: 0.94,
+  },
+  {
+    id: "openai",
+    name: "OpenAI Blog",
+    url: "https://openai.com/blog/rss.xml",
+    siteUrl: "https://openai.com/blog",
+    category: "ai",
+    quality: 0.91,
+  },
+  {
+    id: "hn-ai",
+    name: "HN AI / Quant / Data",
+    url: "https://hnrss.org/newest?q=AI+OR+machine+learning+OR+quant",
+    siteUrl: "https://news.ycombinator.com",
+    category: "ai",
+    quality: 0.75,
+  },
+  {
+    id: "devto-ai",
+    name: "Dev.to AI",
+    url: "https://dev.to/feed/tag/ai",
+    siteUrl: "https://dev.to/t/ai",
+    category: "ai",
+    quality: 0.7,
+  },
+  {
+    id: "devto-ds",
+    name: "Dev.to Data Science",
+    url: "https://dev.to/feed/tag/datascience",
+    siteUrl: "https://dev.to/t/datascience",
+    category: "data",
+    quality: 0.7,
+  },
+];
+
+export const CATEGORY_LABELS: Record<StreamCategory | "all", string> = {
+  all: "All",
+  markets: "Markets",
+  equity: "Equity",
+  data: "Data Sci",
+  ai: "AI & ML",
+};
+
+export const CATEGORY_COLORS: Record<StreamCategory, string> = {
+  markets: "#34C759",
+  equity: "#0A84FF",
+  data: "#FF9F0A",
+  ai: "#BF5AF2",
+};
+
+export function getFeedById(id: string): FeedSource | undefined {
+  return CURATED_FEEDS.find((f) => f.id === id);
+}
