@@ -1,71 +1,11 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
-import DOMPurify from "isomorphic-dompurify";
-import { assertPublicUrl } from "./ssrf";
+import { sanitizeHtml } from "./sanitize-html";
+import { assertPublicUrl, readResponseText, safeFetch } from "./ssrf";
 import type { ExtractResponse } from "./types";
 
 const FETCH_TIMEOUT_MS = 12000;
-
-const ALLOWED_TAGS = [
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "p",
-  "br",
-  "hr",
-  "blockquote",
-  "ul",
-  "ol",
-  "li",
-  "strong",
-  "em",
-  "b",
-  "i",
-  "u",
-  "a",
-  "img",
-  "figure",
-  "figcaption",
-  "table",
-  "thead",
-  "tbody",
-  "tr",
-  "th",
-  "td",
-  "pre",
-  "code",
-  "span",
-  "div",
-  "section",
-  "article",
-];
-
-const ALLOWED_ATTR = [
-  "href",
-  "src",
-  "alt",
-  "title",
-  "class",
-  "id",
-  "width",
-  "height",
-  "loading",
-  "colspan",
-  "rowspan",
-  "target",
-  "rel",
-];
-
-function sanitize(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
-  });
-}
+const MAX_FALLBACK_HTML = 200_000;
 
 function enhanceContent(html: string, baseUrl: string): string {
   try {
@@ -128,23 +68,22 @@ function enhanceContent(html: string, baseUrl: string): string {
 }
 
 async function fetchHtml(url: string): Promise<string> {
-  const safe = await assertPublicUrl(url);
+  await assertPublicUrl(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(safe.toString(), {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; SignalDesk/1.0; +https://signaldesk.app)",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
-      redirect: "follow",
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
-    return await res.text();
+    return await readResponseText(res);
   } finally {
     clearTimeout(timer);
   }
@@ -154,6 +93,11 @@ export async function extractArticle(
   url: string,
   fallbackHtml?: string
 ): Promise<ExtractResponse> {
+  const cappedFallback =
+    fallbackHtml && fallbackHtml.length > MAX_FALLBACK_HTML
+      ? fallbackHtml.slice(0, MAX_FALLBACK_HTML)
+      : fallbackHtml;
+
   try {
     const html = await fetchHtml(url);
     const dom = new JSDOM(html, { url });
@@ -164,7 +108,7 @@ export async function extractArticle(
     const parsed = reader.parse();
 
     if (parsed?.content && parsed.content.length > 120) {
-      const cleaned = sanitize(parsed.content);
+      const cleaned = sanitizeHtml(parsed.content);
       const enhanced = enhanceContent(cleaned, url);
       return {
         url,
@@ -181,8 +125,8 @@ export async function extractArticle(
   } catch (err) {
     const message = (err as Error).message || "Extraction failed";
 
-    if (fallbackHtml && fallbackHtml.length > 40) {
-      const cleaned = sanitize(fallbackHtml);
+    if (cappedFallback && cappedFallback.length > 40) {
+      const cleaned = sanitizeHtml(cappedFallback);
       const enhanced = enhanceContent(cleaned, url);
       return {
         url,

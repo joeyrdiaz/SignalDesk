@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { discoverFeedUrl, validateAndProbeFeed } from "@/lib/fetch-feeds";
+import { allowRequest, clientKey } from "@/lib/rate-limit";
 import { assertPublicUrl } from "@/lib/ssrf";
 import type { CustomFeedResponse, StreamCategory } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 60_000;
 
 function slugify(s: string): string {
   return s
@@ -15,7 +19,16 @@ function slugify(s: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  if (!allowRequest(clientKey(req, "feeds-custom"), RATE_LIMIT, RATE_WINDOW_MS)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   try {
+    const contentLength = Number(req.headers.get("content-length") || 0);
+    if (contentLength > 16_000) {
+      return NextResponse.json({ error: "Request too large" }, { status: 413 });
+    }
+
     const body = (await req.json()) as {
       url?: string;
       name?: string;
@@ -50,26 +63,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const probe = await validateAndProbeFeed(discovered);
+    // Defense in depth: re-check before probe (discovery already validates)
+    const safeDiscovered = await assertPublicUrl(discovered);
+    const probe = await validateAndProbeFeed(safeDiscovered.toString());
     const category: StreamCategory =
       body.category && ["markets", "equity", "data", "ai"].includes(body.category)
         ? body.category
         : "markets";
 
-    const name = (body.name || probe.title || parsed.hostname).trim();
+    const name = (body.name || probe.title || parsed.hostname).trim().slice(0, 120);
     const id = `custom-${slugify(name)}-${Date.now().toString(36)}`;
 
     const response: CustomFeedResponse = {
       source: {
         id,
         name,
-        url: discovered,
+        url: safeDiscovered.toString(),
         siteUrl: parsed.origin,
         category,
         quality: 0.65,
         custom: true,
       },
-      discoveredUrl: discovered,
+      discoveredUrl: safeDiscovered.toString(),
       itemCount: probe.itemCount,
     };
 
