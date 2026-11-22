@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractArticle } from "@/lib/extract";
+import { allowRequest, clientKey } from "@/lib/rate-limit";
 import { assertPublicUrl } from "@/lib/ssrf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const MAX_FALLBACK_CHARS = 200_000;
+const RATE_LIMIT = 30;
+const RATE_WINDOW_MS = 60_000;
+
+function rateLimited(req: NextRequest) {
+  if (!allowRequest(clientKey(req, "extract"), RATE_LIMIT, RATE_WINDOW_MS)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
+  const limited = rateLimited(req);
+  if (limited) return limited;
+
   const url = req.nextUrl.searchParams.get("url");
   if (!url) {
     return NextResponse.json({ error: "url query param required" }, { status: 400 });
@@ -21,7 +36,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const fallbackHtml = req.nextUrl.searchParams.get("fallback") || undefined;
+  let fallbackHtml = req.nextUrl.searchParams.get("fallback") || undefined;
+  if (fallbackHtml && fallbackHtml.length > MAX_FALLBACK_CHARS) {
+    fallbackHtml = fallbackHtml.slice(0, MAX_FALLBACK_CHARS);
+  }
 
   try {
     const result = await extractArticle(parsed.toString(), fallbackHtml || undefined);
@@ -57,7 +75,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimited(req);
+  if (limited) return limited;
+
   try {
+    const contentLength = Number(req.headers.get("content-length") || 0);
+    if (contentLength > MAX_FALLBACK_CHARS + 8_000) {
+      return NextResponse.json({ error: "Request too large" }, { status: 413 });
+    }
+
     const body = (await req.json()) as { url?: string; fallbackHtml?: string };
     if (!body.url) {
       return NextResponse.json({ error: "url is required" }, { status: 400 });
@@ -71,7 +97,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const result = await extractArticle(safe.toString(), body.fallbackHtml);
+
+    let fallback = body.fallbackHtml;
+    if (fallback && fallback.length > MAX_FALLBACK_CHARS) {
+      fallback = fallback.slice(0, MAX_FALLBACK_CHARS);
+    }
+
+    const result = await extractArticle(safe.toString(), fallback);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

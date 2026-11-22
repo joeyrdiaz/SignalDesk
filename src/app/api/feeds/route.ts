@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aggregateFeeds } from "@/lib/fetch-feeds";
 import { getCached, setCache, cacheKey } from "@/lib/cache";
+import { allowRequest, clientKey } from "@/lib/rate-limit";
 import { assertPublicUrl } from "@/lib/ssrf";
 import type { FeedSource, FeedsResponse, StreamCategory } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const RATE_LIMIT = 60;
+const RATE_WINDOW_MS = 60_000;
 
 let refreshing: Promise<FeedsResponse> | null = null;
 
@@ -57,6 +61,10 @@ async function parseExtraSources(req: NextRequest): Promise<FeedSource[]> {
 
 export async function GET(req: NextRequest) {
   try {
+    if (!allowRequest(clientKey(req, "feeds"), RATE_LIMIT, RATE_WINDOW_MS)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const category = req.nextUrl.searchParams.get("category");
     const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
     const extra = await parseExtraSources(req);

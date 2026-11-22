@@ -2,7 +2,7 @@ import Parser from "rss-parser";
 import { CURATED_FEEDS } from "./feeds";
 import { computeSignalScore, autoTag } from "./scoring";
 import { generateTakeaways } from "./takeaways";
-import { assertPublicUrl } from "./ssrf";
+import { assertPublicUrl, readResponseText, safeFetch } from "./ssrf";
 import type {
   Article,
   FeedSource,
@@ -99,13 +99,29 @@ function normalizeUrl(u: string): string {
   }
 }
 
+/** Fetch + parse a feed URL with hop-by-hop public URL checks (no blind redirects). */
+async function parseFeedSafely(feedUrl: string, label: string) {
+  const safe = await assertPublicUrl(feedUrl);
+  const res = await withTimeout(
+    safeFetch(safe.toString(), {
+      headers: {
+        "User-Agent": "SignalDesk/1.0 (+https://signaldesk.app; aggregator)",
+        Accept:
+          "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+      },
+      signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
+    }),
+    FEED_TIMEOUT_MS,
+    label
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await readResponseText(res);
+  return parser.parseString(text);
+}
+
 async function fetchOneFeed(source: FeedSource): Promise<Article[]> {
   try {
-    const feed = await withTimeout(
-      parser.parseURL(source.url),
-      FEED_TIMEOUT_MS,
-      source.name
-    );
+    const feed = await parseFeedSafely(source.url, source.name);
     const items = (feed.items || []).slice(0, MAX_ITEMS_PER_FEED);
     return items
       .map((item) => {
@@ -251,13 +267,10 @@ export async function discoverFeedUrl(inputUrl: string): Promise<string | null> 
 
   for (const candidate of unique) {
     try {
-      const feed = await withTimeout(
-        parser.parseURL(candidate),
-        FEED_TIMEOUT_MS,
-        candidate
-      );
+      const safeCandidate = await assertPublicUrl(candidate);
+      const feed = await parseFeedSafely(safeCandidate.toString(), candidate);
       if (feed.items && feed.items.length > 0) {
-        return candidate;
+        return safeCandidate.toString();
       }
     } catch {
       // try next
@@ -267,14 +280,14 @@ export async function discoverFeedUrl(inputUrl: string): Promise<string | null> 
   // Try HTML auto-discovery
   try {
     const res = await withTimeout(
-      fetch(base.toString(), {
+      safeFetch(base.toString(), {
         headers: { "User-Agent": "SignalDesk/1.0" },
         signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
       }),
       FEED_TIMEOUT_MS,
       "html"
     );
-    const html = await res.text();
+    const html = await readResponseText(res);
     const linkMatch = html.match(
       /<link[^>]+type=["']application\/(rss|atom)\+xml["'][^>]*href=["']([^"']+)["']/i
     ) || html.match(
@@ -283,12 +296,9 @@ export async function discoverFeedUrl(inputUrl: string): Promise<string | null> 
     if (linkMatch) {
       const href = linkMatch[2] || linkMatch[1];
       const absolute = new URL(href, base).toString();
-      const feed = await withTimeout(
-        parser.parseURL(absolute),
-        FEED_TIMEOUT_MS,
-        absolute
-      );
-      if (feed.items && feed.items.length > 0) return absolute;
+      const safeAbsolute = await assertPublicUrl(absolute);
+      const feed = await parseFeedSafely(safeAbsolute.toString(), absolute);
+      if (feed.items && feed.items.length > 0) return safeAbsolute.toString();
     }
   } catch {
     // ignore
@@ -301,7 +311,8 @@ export async function validateAndProbeFeed(feedUrl: string): Promise<{
   title: string;
   itemCount: number;
 }> {
-  const feed = await withTimeout(parser.parseURL(feedUrl), FEED_TIMEOUT_MS, feedUrl);
+  const safe = await assertPublicUrl(feedUrl);
+  const feed = await parseFeedSafely(safe.toString(), feedUrl);
   return {
     title: feed.title || "Custom Feed",
     itemCount: feed.items?.length || 0,

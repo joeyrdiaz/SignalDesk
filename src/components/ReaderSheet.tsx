@@ -22,6 +22,7 @@ import type {
 } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/format";
 import { getSavedArticle, isArticleSaved, saveArticle, unsaveArticle } from "@/lib/db";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 interface ReaderSheetProps {
   article: Article | null;
@@ -57,7 +58,7 @@ export function ReaderSheet({ article, onClose, onSavedChange }: ReaderSheetProp
         setContent({
           url: article.link,
           title: article.title,
-          content: offline.html,
+          content: sanitizeHtml(offline.html),
           fallback: offline.fallback,
         });
         setSaved(true);
@@ -82,17 +83,23 @@ export function ReaderSheet({ article, onClose, onSavedChange }: ReaderSheetProp
             json.title = article.title;
           }
           if (!json.content && article.contentEncoded) {
-            json.content = article.contentEncoded;
+            json.content = sanitizeHtml(article.contentEncoded);
             json.fallback = true;
+          } else if (json.content) {
+            // Defense in depth: never render unsanitized HTML in the reader
+            json.content = sanitizeHtml(json.content);
           }
           setContent(json);
         }
       } catch {
         if (!cancelled) {
+          const raw =
+            article.contentEncoded ||
+            `<p>${article.summary.replace(/</g, "&lt;")}</p>`;
           setContent({
             url: article.link,
             title: article.title,
-            content: article.contentEncoded || `<p>${article.summary}</p>`,
+            content: sanitizeHtml(raw),
             fallback: true,
             error: "Network error",
           });

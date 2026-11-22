@@ -1,0 +1,32 @@
+type Bucket = { count: number; resetAt: number };
+
+const buckets = new Map<string, Bucket>();
+
+/**
+ * Simple in-memory fixed-window rate limiter.
+ * Returns true when the request is allowed.
+ */
+export function allowRequest(
+  key: string,
+  limit: number,
+  windowMs: number
+): boolean {
+  const now = Date.now();
+  const existing = buckets.get(key);
+  if (!existing || now >= existing.resetAt) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (existing.count >= limit) return false;
+  existing.count += 1;
+  return true;
+}
+
+export function clientKey(req: Request, route: string): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ip =
+    (forwarded ? forwarded.split(",")[0]?.trim() : null) ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  return `${route}:${ip}`;
+}
